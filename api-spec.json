@@ -1,0 +1,1083 @@
+openapi: 3.0.3
+info:
+  title: Organization Device Tracking API
+  version: 1.0.0
+  description: API for managing organizations, devices (shovels), users, sessions, spots and logs.
+servers:
+  - url: https://api.example.com/v1
+
+components:
+  schemas:
+    Organization:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 255
+        legal_form:
+          type: string
+          maxLength: 50
+          description: The legal structure of the organization e.g., AG, GmbH, Verein, Stiftung
+        registration_number:
+          type: string
+          maxLength: 20
+          description: Official Swiss UID (CHE) company registration number, e.g., CHE-123.456.789
+        street:
+          type: string
+          maxLength: 255
+          description: Street name and number
+        postal_code:
+          type: string
+          maxLength: 20
+        city:
+          type: string
+          maxLength: 100
+        country:
+          type: string
+          maxLength: 2
+          default: CH
+          description: ISO 3166-1 alpha-2 country code
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Shovel:
+      type: object
+      required:
+        - id
+        - organization_id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the device
+        organization_id:
+          type: string
+          format: uuid
+          description: The organization that owns this device
+        serial_number:
+          type: string
+          maxLength: 100
+          description: Unique device serial number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ShovelLog:
+      type: object
+      required:
+        - id
+        - shovel_id
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the status log entry
+        shovel_id:
+          type: string
+          format: uuid
+          description: The shovel this log entry belongs to
+        status:
+          type: string
+          maxLength: 50
+          description: Status of the shovel (e.g., active, maintenance, retired)
+        created_at:
+          type: string
+          format: date-time
+
+    Role:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 50
+          description: Name of the role (e.g., employee, employer)
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      required:
+        - first_name
+        - last_name
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+          description: The organization this user belongs to
+        role_id:
+          type: string
+          format: uuid
+          description: Reference to the role of the user
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 150
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Session:
+      type: object
+      required:
+        - id
+        - user_id
+        - shovel_id
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: The employee who performed the session
+        shovel_id:
+          type: string
+          format: uuid
+          description: The device used in the session
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Spot:
+      type: object
+      required:
+        - id
+        - organization_id
+        - latitude
+        - longitude
+      properties:
+        id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        latitude:
+          type: number
+        longitude:
+          type: number
+        altitude:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SessionLog:
+      type: object
+      required:
+        - id
+        - session_id
+        - latitude
+        - longitude
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the session log entry
+        session_id:
+          type: string
+          format: uuid
+        spot_id:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        latitude:
+          type: number
+        longitude:
+          type: number
+        altitude:
+          type: number
+        movement_type:
+          type: string
+          maxLength: 20
+          description: Classified movement type (motion, dig)
+        movement_probability:
+          type: number
+          format: double
+          description: Probability returned by the ML model for the movement_type
+        employee_confirmed:
+          type: boolean
+          description: If the employee confirmed the activity
+        sensor_data:
+          type: object
+          description: Raw sensor data (e.g., accelerometer, gyroscope) for the ML model
+
+    SpotLog:
+      type: object
+      required:
+        - id
+        - spot_id
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        spot_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          maxLength: 20
+          description: Status of the spot (not started, in progress, finished)
+        created_at:
+          type: string
+          format: date-time
+        session_id:
+          type: string
+          format: uuid
+          description: The session that triggered this status change (optional)
+
+  parameters:
+    idPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    limitQuery:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 50
+    offsetQuery:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+
+  responses:
+    NotFound:
+      description: Resource not found
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+
+paths:
+  /organizations:
+    get:
+      summary: List organizations
+      parameters:
+        - $ref: '#/components/parameters/limitQuery'
+        - $ref: '#/components/parameters/offsetQuery'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organization'
+    post:
+      summary: Create organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Organization'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /organizations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idPath'
+    get:
+      summary: Get organization by id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Replace organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Organization'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update organization fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Organization'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete organization
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /shovels:
+    get:
+      summary: List shovels
+      parameters:
+        - $ref: '#/components/parameters/limitQuery'
+        - $ref: '#/components/parameters/offsetQuery'
+        - name: organization_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shovel'
+    post:
+      summary: Create shovel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Shovel'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shovel'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /shovels/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idPath'
+    get:
+      summary: Get shovel by id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shovel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Replace shovel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Shovel'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shovel'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update shovel fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Shovel'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shovel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete shovel
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /shovel_logs:
+    get:
+      summary: List shovel logs
+      parameters:
+        - $ref: '#/components/parameters/limitQuery'
+        - $ref: '#/components/parameters/offsetQuery'
+        - name: shovel_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShovelLog'
+    post:
+      summary: Create shovel log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShovelLog'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShovelLog'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /shovel_logs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idPath'
+    get:
+      summary: Get shovel log by id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShovelLog'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete shovel log
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /roles:
+    get:
+      summary: List roles
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+    post:
+      summary: Create role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /roles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idPath'
+    get:
+      summary: Get role by id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Replace role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update role fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Role'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete role
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users:
+    get:
+      summary: List users
+      parameters:
+        - $ref: '#/components/parameters/limitQuery'
+        - $ref: '#/components/parameters/offsetQuery'
+        - name: organization_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: role_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: email
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    post:
+      summary: Create user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idPath'
+    get:
+      summary: Get user by id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Replace user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update user fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete user
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /sessions:
+    get:
+      summary: List sessions
+      parameters:
+        - $ref: '#/components/parameters/limitQuery'
+        - $ref: '#/components/parameters/offsetQuery'
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: shovel_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+    post:
+      summary: Create session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Session'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /sessions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idPath'
+    get:
+      summary: Get session by id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Replace session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Session'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update session fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Session'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete session
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /spots:
+    get:
+      summary: List spots
+      parameters:
+        - $ref: '#/components/parameters/limitQuery'
+        - $ref: '#/components/parameters/offsetQuery'
+        - name: organization_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Spot'
+    post:
+      summary: Create spot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Spot'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Spot'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /spots/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idPath'
+    get:
+      summary: Get spot by id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Spot'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Replace spot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Spot'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Spot'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update spot fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Spot'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Spot'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete spot
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /session_logs:
+    get:
+      summary: List session logs
+      parameters:
+        - $ref: '#/components/parameters/limitQuery'
+        - $ref: '#/components/parameters/offsetQuery'
+        - name: session_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: spot_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionLog'
+    post:
+      summary: Create session log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionLog'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionLog'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /session_logs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idPath'
+    get:
+      summary: Get session log by id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionLog'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete session log
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /spot_logs:
+    get:
+      summary: List spot logs
+      parameters:
+        - $ref: '#/components/parameters/limitQuery'
+        - $ref: '#/components/parameters/offsetQuery'
+        - name: spot_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SpotLog'
+    post:
+      summary: Create spot log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpotLog'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotLog'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /spot_logs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/idPath'
+    get:
+      summary: Get spot log by id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpotLog'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete spot log
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'

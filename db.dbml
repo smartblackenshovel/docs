@@ -1,0 +1,139 @@
+//////////////////////////////////////////////////////
+// ORGANIZATIONS
+//////////////////////////////////////////////////////
+
+Table organizations {
+  id uuid [pk]
+  name varchar(255) [not null]
+  legal_form varchar(50) [note: 'The legal structure of the organization (e.g., AG, GmbH, Verein, Stiftung, etc.)']
+  registration_number varchar(20) [unique, note: 'Official Swiss UID (CHE) company registration number, e.g., CHE-123.456.789 or CHE-123.456.789 MWST']
+  street varchar(255) [note: 'Street name and number']
+  postal_code varchar(20) [note: 'Postal code of the organization']
+  city varchar(100) [note: 'City of the organization']
+  country varchar(2) [default: 'CH', note: 'ISO 3166-1 alpha-2 country code (e.g., CH, DE, IT)']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (registration_number) [unique]
+  }
+}
+
+Table shovels {
+  id uuid [pk, note: 'Unique identifier for the device']
+  organization_id uuid [ref: > organizations.id, note: 'The organization that owns this device']
+  serial_number varchar(100) [unique, note: 'Unique device serial number']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (organization_id)
+    (serial_number) [unique]
+  }
+}
+
+Table shovel_logs {
+  id uuid [pk, note: 'Unique identifier for the status log entry']
+  shovel_id uuid [ref: > shovels.id, note: 'The shovel this log entry belongs to']
+  status varchar(50) [note: 'Status of the shovel (e.g., active, maintenance, retired)']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (shovel_id)
+    (status)
+  }
+}
+
+Table roles {
+  id uuid [pk, note: 'Unique identifier for the role']
+  name varchar(50) [unique, not null, note: 'Name of the role (e.g., employee, employer)']
+  description text [note: 'Optional description of the role']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (name) [unique]
+  }
+}
+
+Table users {
+  id uuid [pk, note: 'Unique identifier for the user']
+  organization_id uuid [ref: > organizations.id, note: 'The organization this user belongs to']
+  role_id uuid [ref: > roles.id, note: 'Reference to the role of the user']
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  email varchar(150) [unique]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (organization_id)
+    (email) [unique]
+    (role_id)
+  }
+}
+
+Table sessions {
+  id uuid [pk, note: 'Unique identifier for the session']
+  user_id uuid [ref: > users.id, note: 'The employee who performed the session']
+  shovel_id uuid [ref: > shovels.id, note: 'The device used in the session']
+  started_at timestamp [default: `CURRENT_TIMESTAMP`]
+  ended_at timestamp
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (user_id)
+    (shovel_id)
+    (user_id, started_at)
+  }
+}
+
+Table spots {
+  id uuid [pk, note: 'Unique identifier for the spot']
+  organization_id uuid [ref: > organizations.id, note: 'Organization this spot belongs to']
+  latitude double [not null]
+  longitude double [not null]
+  altitude double
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+
+  Indexes {
+    (organization_id)
+    (latitude, longitude)  // For spatial queries
+  }
+}
+
+Table session_logs {
+  id uuid [pk, note: 'Unique identifier for the session log entry']
+  session_id uuid [ref: > sessions.id]
+  spot_id uuid [ref: > spots.id]
+  timestamp timestamp [default: `CURRENT_TIMESTAMP`]
+  latitude double [not null]
+  longitude double [not null]
+  altitude double
+  movement_type varchar(20) [note: 'Classified movement type (motion, dig)']
+  movement_probability double [note: 'Probability returned by the ML model for the movement_type']
+  employee_confirmed boolean [note: 'If the employee confirmed the activity (true/false)']
+  sensor_data json [note: 'Raw sensor data (e.g., accelerometer, gyroscope) for the ML model']
+
+  Indexes {
+    (session_id)
+    (spot_id)
+    (session_id, timestamp)
+  }
+}
+
+Table spot_logs {
+  id uuid [pk, note: 'Unique identifier for the status log entry']
+  spot_id uuid [ref: > spots.id]
+  status varchar(20) [note: 'Status of the spot (not started, in progress, finished)']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  session_id uuid [ref: > sessions.id, note: 'The session that triggered this status change (optional)']
+
+  Indexes {
+    (spot_id)
+    (status)
+    (session_id)
+  }
+}
